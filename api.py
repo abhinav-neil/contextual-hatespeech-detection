@@ -19,7 +19,6 @@ PATHS = Namespace(
     my_lexicons    = '/mylexicons',
     get_lexicon    = '/lexicon/{uid}',
     delete_lexicon = '/lexicon/{uid}/delete', 
-
 )
 TOKEN = None
 
@@ -49,13 +48,12 @@ def login(email, password=None, digits=None, refresh=False):
 
 
 if __name__ == '__main__':
-    email = 'pierre@textgain.com' 
+    email = 'abhinav.bhuyan@student.uva.nl' 
     TOKEN = login(email)
     
-
     # Create a new channel
     payload = {
-        'name': 'Far-right dog whistles',
+        'name': 'test channel',
         'public':False,
         'search_parameters':{
             'query':{
@@ -67,55 +65,11 @@ if __name__ == '__main__':
         }
     }
 
-    # response = post(PATHS.new_channel, json=payload)
-    # channel = response.json()
-    # print(channel)
-
-    # List active channels
-    my_channels = get(PATHS.my_channels).json()
-    ch1 = my_channels[0]
-
-    # Get a specific channel
-    print(get(PATHS.get_channel.format(uid=ch1['uid'])).json())
+    response = post(PATHS.new_channel, json=payload)
+    channel = response.json()
+    print(channel)
 
 
-    # Update a custom lexicon
-    import base64
-    # filepath = '' # Path to your CSV file (first row must be the headers)
-    with open(filepath, 'rb') as f:
-        raw = f.read()
-    encoded = base64.b64encode(raw)
-    payload = dict(
-        file = encoded.decode('utf8'),
-        lang = 'en', # ISO-code
-        name = 'My awesome lexicon',
-        active_fields = dict( # Fields not in 'active_fields' will be saved but ignored during analysis.
-            phrase = 'word',    # Name of the column containing the word or phrase
-            score = 'score',    # Name of the column containing the annotation score
-            categories = [      # Name of the columns containing categories to be considered. 
-                'Racism', 'Misogyny', 'Far-right'
-            ]
-        )
-    )
-
-    response = post(PATHS.add_lexicon, json=payload)
-    print(response.json())
-
-
-    # List existing lexicons
-    response = get(PATHS.my_lexicons)
-    lexicons = response.json()
-    print(lexicons)
-
-    # Get a specific lexicon
-    lex = lexicons[0]
-    response = get(PATHS.get_lexicon.format(lex['uid']))
-    print(response.json())
-
-    # # Delete a specific lexicon
-    # lex = lexicons[0]
-    # response = get(PATHS.delete_lexicon.format(lex['uid']))
-    # print(response.json())
 
 
 
