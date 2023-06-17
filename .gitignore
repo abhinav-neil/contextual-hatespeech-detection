@@ -1,4 +1,5 @@
 # files
 *.pdf
+.env
 
 # folders
