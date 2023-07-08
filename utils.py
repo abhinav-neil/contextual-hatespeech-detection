@@ -194,7 +194,7 @@ def train(model, train_data_loader, val_data_loader, loss_fn, optimizer, device,
         best_val_loss = checkpoint['best_val_loss']
         best_val_acc = checkpoint['best_val_acc']
 
-    model = model.to(device)
+    model.to(device)
     model.train()
 
     for epoch in range(num_epochs):
@@ -228,6 +228,8 @@ def train(model, train_data_loader, val_data_loader, loss_fn, optimizer, device,
         # empty GPU cache
         if device == 'cuda':
             torch.cuda.empty_cache()
+            
+        print(f'epoch {epoch+1}: train loss: {train_loss:.3f}, val loss: {val_loss:.3f}, val acc: {val_acc:.3f}')
 
     wandb.finish()
     return best_val_acc
@@ -246,6 +248,7 @@ def evaluate(model, data_loader, loss_fn, device):
         float: Average evaluation loss.
         float: Accuracy.
     """
+    model.to(device)
     model = model.eval()
     losses = []
     predictions = []
