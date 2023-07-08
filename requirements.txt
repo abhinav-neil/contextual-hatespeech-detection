@@ -1,5 +1,7 @@
 numpy
 pandas
-sklearn
+scikit-learn
+ipykernel
 transformers
 torch
+wandb

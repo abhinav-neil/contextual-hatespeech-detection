@@ -4,3 +4,6 @@
 
 # folders
 data
+wandb
+__pycache__
+checkpoints
