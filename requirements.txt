@@ -2,6 +2,10 @@ numpy
 pandas
 scikit-learn
 ipykernel
-transformers
 torch
+torchmetrics
+transformers
+pytorch-lightning
+tensorboard
 wandb
+python-dotenv

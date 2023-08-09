@@ -6,4 +6,5 @@
 data
 wandb
 __pycache__
-checkpoints
+model_ckpts
+lightning_logs
