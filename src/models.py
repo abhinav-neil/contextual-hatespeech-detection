@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 from torch.optim import Adam
 from transformers import AutoModel
@@ -36,7 +37,8 @@ class HateSpeechClassifier(pl.LightningModule):
 
     def __init__(
         self,                      pretrained_model_name: str='roberta-large',
-        num_classes: int=2,
+        # num_classes: int=2,
+        pos_weight: float=5.0,
         lr: float = 5e-4,
         weight_decay: float = 5e-4,
         **kwargs,
@@ -47,6 +49,7 @@ class HateSpeechClassifier(pl.LightningModule):
         Args:
             pretrained_model_name (str): Pretrained model name or path.
             num_classes (int): Number of output labels.
+            pos_weight (float): Weight for positive class in CrossEntropyLoss.
             lr (float): Learning rate for optimizer (Adam).
             weight_decay (float): Weight decay for optimizer (Adam).
         """
@@ -56,48 +59,54 @@ class HateSpeechClassifier(pl.LightningModule):
         # instantiate BERT model
         self.model = AutoModel.from_pretrained(pretrained_model_name)
         # self.dropout = nn.Dropout(0.3)
-        self.fc = nn.Linear(self.model.config.hidden_size, num_classes)
+        self.fc = nn.Linear(self.model.config.hidden_size, 1)
         
         # instantiate loss function
-        self.loss = nn.CrossEntropyLoss()
+        self.loss = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight))
 
         # instantiate accuracy metric
-        self.accuracy = torchmetrics.Accuracy(task='multiclass', num_classes=self.hparams.num_classes)
+        self.accuracy = torchmetrics.Accuracy(task='binary')
 
     def forward(self, input_ids, attention_mask):
         outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
         pooled_output = outputs.pooler_output
         # pooled_output = self.dropout(pooled_output)
-        logits = self.fc(pooled_output)
+        logits = self.fc(pooled_output).squeeze(-1)
         return logits
     
-    def step(self, batch, batch_idx):
+    def step(self, batch):
         input_ids, attention_mask, labels = batch["input_ids"], batch["attention_mask"], batch["labels"]
-        y_hat = self.forward(input_ids, attention_mask)
-        loss = self.loss(y_hat, labels)
-        return loss, y_hat, labels
+        logits = self.forward(input_ids, attention_mask)
+        loss = self.loss(logits, labels.float())
+        return loss, logits, labels
 
 
     def training_step(self, batch, batch_idx):
-        loss, y_hat, y = self.step(batch, batch_idx)
-        acc = self.accuracy(y_hat.softmax(dim=-1), y)  # Compute accuracy
+        loss, logits, y = self.step(batch)
+        acc = self.accuracy(torch.sigmoid(logits), y)  # Compute accuracy
         self.log("train_loss", loss, batch_size=len(y))
         self.log("train_acc", acc, batch_size=len(y))  # Log accuracy
         return loss
 
     def validation_step(self, batch, batch_idx):
-        loss, y_hat, y = self.step(batch, batch_idx)
-        acc = self.accuracy(y_hat.softmax(dim=-1), y)  # Compute accuracy
+        loss, logits, y = self.step(batch)
+        acc = self.accuracy(torch.sigmoid(logits), y)  # Compute accuracy
         self.log("val_loss", loss, batch_size=len(y))
         self.log("val_acc", acc, batch_size=len(y))  # Log accuracy
         return loss
 
     def test_step(self, batch, batch_idx):
-        loss, y_hat, y = self.step(batch, batch_idx)
-        acc = self.accuracy(y_hat.softmax(dim=-1), y)  # Compute accuracy
+        loss, logits, y = self.step(batch)
+        acc = self.accuracy(torch.sigmoid(logits), y)  # Compute accuracy
         self.log("test_loss", loss, batch_size=len(y))
         self.log("test_acc", acc, batch_size=len(y))  # Log accuracy
         return loss
+    
+    def predict_step(self, batch, batch_idx):
+        input_ids, attention_mask, labels = batch["input_ids"], batch["attention_mask"], batch["labels"]
+        logits = self.forward(input_ids, attention_mask)
+        preds = (torch.sigmoid(logits) > 0.5).long()
+        return labels, preds
     
     def on_train_epoch_end(self): 
         # log epoch metric

@@ -9,3 +9,5 @@ pytorch-lightning
 tensorboard
 wandb
 python-dotenv
+matplotlib
+seaborn

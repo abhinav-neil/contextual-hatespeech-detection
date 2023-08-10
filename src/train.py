@@ -199,6 +199,7 @@ def train_pl(model, train_loader, val_loader, args):
     # Define early stopping callback
     early_stop_callback = EarlyStopping(
         monitor='val_loss',
+        min_delta=0.0001,
         patience=args.get('patience', 5),
         verbose=True,
         mode='min'
