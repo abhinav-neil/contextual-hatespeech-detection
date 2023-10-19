@@ -11,3 +11,4 @@ wandb
 python-dotenv
 matplotlib
 seaborn
+datasets
