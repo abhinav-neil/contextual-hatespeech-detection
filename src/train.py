@@ -2,7 +2,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
-def train_pl(model, train_loader, val_loader, args):
+def train(model, train_loader, val_loader, args):
     """
     Trains the given model with the provided arguments.
 
@@ -38,7 +38,7 @@ def train_pl(model, train_loader, val_loader, args):
     )
     
     # Define logger
-    logger = TensorBoardLogger("lightning_logs", name=model.__class__.__name__)
+    logger = TensorBoardLogger("lightning_logs", name=args.get('tb_logdir', 'default'))
 
 
     # Initialize the trainer
@@ -50,12 +50,6 @@ def train_pl(model, train_loader, val_loader, args):
         logger=logger,
     )
     
-    # print trainer args
-    # print("\ntrainer args:")
-    # for arg, value in vars(trainer).items():
-    #     print(f"{arg}: {value}")
-    # print("\n")
-
     # Train the model
     trainer.fit(model, train_loader, val_loader, ckpt_path=args.get('resume_ckpt', None))
     print(f'training on device: {model.device}')

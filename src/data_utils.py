@@ -99,3 +99,46 @@ def create_dataloaders(data_path, tokenizer, max_len=128, bsz=64, num_workers=12
 
     return train_loader, val_loader, test_loader
 
+def preprocess_eooh_annots(data_path, output_path):
+    '''
+    Preprocess the annotations from the EOOH dataset.
+    Args:
+        data_path (str): Path to the data (excel file)
+        output_path (str): Path to save the preprocessed data.
+    '''
+    
+    # load ucb dataset w EOOH annotations
+    df_hs_eooh = pd.read_excel(data_path)
+
+    # Replace invalid values in 'label' column with 0
+    df_hs_eooh['label'] = df_hs_eooh['label'].apply(lambda x: x if x in [0, 1] else 0)
+
+    # convert categories to list
+    df_hs_eooh['categories'] = df_hs_eooh['categories'].str.lower().str.split()
+    df_hs_eooh['categories'] = df_hs_eooh['categories'].apply(lambda x: x if isinstance(x, list) else [])
+
+    # one-hot encode categories & merge w original dataframe
+    df_categories_1he = pd.get_dummies(df_hs_eooh['categories'].apply(pd.Series).stack()).reset_index().groupby('level_0').sum()
+    df_categories_1he.drop(columns=['level_1'], inplace=True)
+
+    # merge one-hot encoded categories with original dataframe
+    # df_hs_eooh = pd.concat([df_hs_eooh, df_categories_1he], axis=1)
+    df_hs_eooh = df_hs_eooh.merge(df_categories_1he, left_index=True, right_index=True, how='left')
+
+
+    # drop original 'categories' col
+    df_hs_eooh.drop(columns=['categories'], inplace=True)
+    # convert col names to lowercase
+    df_hs_eooh.columns = df_hs_eooh.columns.str.lower()
+
+    # convert 1he columns to int & replace NaNs with 0
+    for col in df_categories_1he.columns:
+        df_hs_eooh[col] = df_hs_eooh[col].fillna(0)
+        df_hs_eooh[col] = df_hs_eooh[col].astype(int)
+    
+    # convert 'label' col to int & replace NaNs with 0
+    df_hs_eooh['label'] = df_hs_eooh['label'].replace('none', 0)
+    df_hs_eooh['label'] = df_hs_eooh['label'].fillna(0).astype(int)
+
+    # save updated dataframe
+    df_hs_eooh.to_csv(output_path, index=False)

@@ -12,42 +12,41 @@ class HateSpeechClassifier(pl.LightningModule):
     """
 
     def __init__(
-        self,                      lm_name: str='roberta-large',
-        # num_classes: int=2,
-        pos_weight: float=10.0,
+        self,                      
+        lm_name: str,
+        pos_weight: float=1.0,
         lr: float = 5e-4,
         weight_decay: float = 5e-4,
+        metrics: list = ['acc', 'precision', 'recall', 'f1'],
         **kwargs,
     ):
         """
         Initialize the HateSpeechClassifier.
-
-        Args:
-            lm_name (str): Pretrained model name or path.
-            num_classes (int): Number of output labels.
-            pos_weight (float): Weight for positive class in CrossEntropyLoss.
-            lr (float): Learning rate for optimizer (Adam).
-            weight_decay (float): Weight decay for optimizer (Adam).
         """
         super().__init__()
         self.save_hyperparameters()
         
         # instantiate BERT model
         self.model = AutoModel.from_pretrained(lm_name)
-        # self.dropout = nn.Dropout(0.3)
         self.fc = nn.Linear(self.model.config.hidden_size, 1)
         
         # instantiate loss function
         self.loss = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight))
 
-        # instantiate accuracy metric
-        self.accuracy = torchmetrics.Accuracy(task='binary')
+        # instantiate metrics
+        self.metrics_dict = {}
+        if 'acc' in metrics:
+            self.metrics_dict['acc'] = torchmetrics.Accuracy(task='binary', average='macro')
+        if 'precision' in metrics:
+            self.metrics_dict['precision'] = torchmetrics.Precision(task='binary', average='macro')
+        if 'recall' in metrics:
+            self.metrics_dict['recall'] = torchmetrics.Recall(task='binary', average='macro')
+        if 'f1' in metrics:
+            self.metrics_dict['f1'] = torchmetrics.F1Score(task='binary', average='macro')
 
     def forward(self, input_ids, attention_mask):
         outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
-        # pooled_output = outputs.pooler_output # for BERT models
         pooled_output = outputs.last_hidden_state[:, 0]
-        # pooled_output = self.dropout(pooled_output)
         logits = self.fc(pooled_output).squeeze(-1)
         return logits
     
@@ -57,24 +56,29 @@ class HateSpeechClassifier(pl.LightningModule):
         loss = self.loss(logits, labels.float())
         return loss, logits, labels
 
-
     def training_step(self, batch, batch_idx):
-        loss, logits, y = self.step(batch)
-        acc = self.accuracy(torch.sigmoid(logits), y)  # Compute accuracy
-        self.log("train_loss", loss, batch_size=len(y), on_epoch=True)
+        loss, _, _ = self.step(batch)
+        self.log("train_loss", loss, batch_size=len(batch["labels"]), on_epoch=True)
         return loss
 
+    def compute_metrics(self, logits, labels, prefix):
+        preds = (torch.sigmoid(logits) > 0.5).long()
+        # move metrics to the device of the logits
+        for metric in self.metrics_dict.values():
+            metric.to(logits.device)
+        for metric_name, metric in self.metrics_dict.items():
+            metric_val = metric(preds, labels)
+            self.log(f"{prefix}_{metric_name}", metric_val, batch_size=len(labels), on_epoch=True)
+
     def validation_step(self, batch, batch_idx):
-        loss, logits, y = self.step(batch)
-        acc = self.accuracy(torch.sigmoid(logits), y)  # Compute accuracy
-        self.log("val_loss", loss, batch_size=len(y), on_epoch=True)
-        self.log("val_acc", acc, batch_size=len(y), on_epoch=True)  # Log accuracy
+        loss, logits, labels = self.step(batch)
+        self.compute_metrics(logits, labels, prefix="val")
+        self.log("val_loss", loss, batch_size=len(labels), on_epoch=True)
         return loss
 
     def test_step(self, batch, batch_idx):
-        loss, logits, y = self.step(batch)
-        acc = self.accuracy(torch.sigmoid(logits), y)  # Compute accuracy
-        self.log("test_acc", acc, batch_size=len(y), on_epoch=True)  # Log accuracy
+        loss, logits, labels = self.step(batch)
+        self.compute_metrics(logits, labels, prefix="test")
         return loss
     
     def predict_step(self, batch, batch_idx):
@@ -83,6 +87,11 @@ class HateSpeechClassifier(pl.LightningModule):
         preds = (torch.sigmoid(logits) > 0.5).long()
         return labels, preds
     
+    def on_train_start(self):
+        device = next(self.parameters()).device  # get the device of the model
+        for metric in self.metrics_dict.values():
+            metric.to(device)  # move each metric to the model's device
+
     def configure_optimizers(self):
         optimizer = Adam(
             self.parameters(),
