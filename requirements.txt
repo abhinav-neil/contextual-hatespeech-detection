@@ -1,5 +1,14 @@
 numpy
 pandas
-sklearn
-transformers
+scikit-learn
+ipykernel
 torch
+torchmetrics
+transformers
+pytorch-lightning
+tensorboard
+wandb
+python-dotenv
+matplotlib
+seaborn
+datasets
