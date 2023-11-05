@@ -8,3 +8,4 @@ wandb
 __pycache__
 model_ckpts
 lightning_logs
+outputs
