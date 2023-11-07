@@ -139,6 +139,11 @@ def preprocess_eooh_annots(data_path, output_path):
     # convert 'label' col to int & replace NaNs with 0
     df_hs_eooh['label'] = df_hs_eooh['label'].replace('none', 0)
     df_hs_eooh['label'] = df_hs_eooh['label'].fillna(0).astype(int)
+    
+    # convert 'toxicity' col to float & replace NaNs with 0
+    # if toxicity is NaN or string, replace with 0
+    
+    df_hs_eooh['toxicity'] = df_hs_eooh['toxicity'].apply(lambda x: x if isinstance(x, float) else 0)
 
     # save updated dataframe
     df_hs_eooh.to_csv(output_path, index=False)
